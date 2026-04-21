@@ -266,6 +266,7 @@ public class GamePanel extends JPanel implements Runnable{
 				promoPieces.add(new Knight(currentColor,9,3));
 				promoPieces.add(new Bishop(currentColor,9,4));
 				promoPieces.add(new Queen(currentColor,9,5));
+				return true;
 			}
 		}
 		
