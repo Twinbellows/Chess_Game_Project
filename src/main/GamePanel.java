@@ -22,8 +22,14 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.util.ArrayList;
 
+
+
 public class GamePanel extends JPanel implements Runnable {
 
+	Piece lastCapturedPiece = null;
+
+	ArrayList<String> moveHistory = new ArrayList<>();
+	
     public static final int WIDTH = 1100;
     public static final int HEIGHT = 800;
     final int FPS = 60;
@@ -178,13 +184,60 @@ public class GamePanel extends JPanel implements Runnable {
                         copyPieces(simPieces, pieces);
                         activeP.updatePosition();
                         if (castlingP != null) castlingP.updatePosition();
+                        
+                     // Numbered notation
+                        int moveNumber = (moveHistory.size() / 2) + 1;
+                        String playerLabel = (currentColor == WHITE)
+                                ? moveNumber + ". White"
+                                : moveNumber + "... Black";
+
+                        // Detect special move types
+                        boolean wasCastling = (castlingP != null);
+                        boolean wasPromotion = 
+                            (activeP.type == Type.PAWN && (activeP.row == 0 || activeP.row == 7));
+                        boolean wasCapture = (lastCapturedPiece != null);
+
+                        String moveText;
+
+                        // Castling
+                        if (wasCastling) {
+                            moveText = (activeP.col == 6) ? "O-O" : "O-O-O";
+                        }
+                        // Promotion
+                        else if (wasPromotion) {
+                            char file = (char)('A' + activeP.col);
+                            int rank = 8 - activeP.row;
+                            moveText = "PAWN to " + file + rank + " = QUEEN";
+                        }
+                        // Capture
+                        else if (wasCapture) {
+                            char file = (char)('A' + activeP.col);
+                            int rank = 8 - activeP.row;
+                            moveText = activeP.type + " takes " + file + rank;
+                        }
+                        // Normal move
+                        else {
+                            char file = (char)('A' + activeP.col);
+                            int rank = 8 - activeP.row;
+                            moveText = activeP.type + " to " + file + rank;
+                        }
+
+                        // Add to history
+                        moveHistory.add(playerLabel + ": " + moveText);
+
+
 
                         if (isKingInCheck() && isCheckmate()) {
                             gameover = true;
                         }
                         else {
-                            if (canPromote()) promotion = true;
-                            else changePlayer();
+                        	if (canPromote()) {
+                        	    promotion = true;
+                        	    return;   // <-- stop update() so activeP stays alive
+                        	} else {
+                        	    changePlayer();
+                        	}
+
                         }
                     }
                     else {
@@ -193,7 +246,7 @@ public class GamePanel extends JPanel implements Runnable {
                         activeP.resetPosition();
                     }
 
-                    activeP = null;
+                    
                 }
             }
         }
@@ -226,11 +279,15 @@ public class GamePanel extends JPanel implements Runnable {
 
             // If hitting a piece, remove it from the list
             if (activeP.hittingP != null) {
+                lastCapturedPiece = activeP.hittingP;
                 simPieces.remove(activeP.hittingP.getIndex());
+            } else {
+                lastCapturedPiece = null;
             }
 
             checkCastling();
-
+            
+            
             validSquare = true;
 
         }
@@ -581,6 +638,11 @@ public class GamePanel extends JPanel implements Runnable {
 
     private void promoting() {
 
+    	if (activeP == null) {
+            promotion = false;
+            return;
+        }
+    	
         if (mouse.pressed) {
             for (Piece piece : promoPieces) {
                 if (piece.col == mouse.x / Board.SQUARE_SIZE && piece.row == mouse.y / Board.SQUARE_SIZE) {
@@ -602,9 +664,12 @@ public class GamePanel extends JPanel implements Runnable {
                     }
                     simPieces.remove(activeP.getIndex());
                     copyPieces(simPieces, pieces);
-                    activeP = null;
+
                     promotion = false;
                     changePlayer();
+
+                    activeP = null;   // <-- move this to the end
+
                 }
             }
         }
@@ -651,6 +716,21 @@ public class GamePanel extends JPanel implements Runnable {
                 }
             }
         }
+    }
+
+    public void showMoveHistory() {
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < moveHistory.size(); i++) {
+            sb.append((i + 1) + ". " + moveHistory.get(i) + "\n");
+        }
+
+        JOptionPane.showMessageDialog(
+                this,
+                sb.toString(),
+                "Move History",
+                JOptionPane.INFORMATION_MESSAGE
+        );
     }
 
     

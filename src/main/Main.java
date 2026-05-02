@@ -37,6 +37,13 @@ public class Main {
         restart.setBounds(50, 150, 200, 40);
         restart.addActionListener(e -> gp.restartGame());
         ui.add(restart);
+        
+        // History Button
+        JButton history = new JButton("Move History");
+        history.setBounds(50, 200, 200, 40);
+        history.addActionListener(e -> gp.showMoveHistory());
+        ui.add(history);
+
 
         window.add(ui, BorderLayout.EAST);
 
