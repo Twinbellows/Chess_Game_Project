@@ -136,54 +136,64 @@ public class GamePanel extends JPanel implements Runnable {
 
         if (promotion) {
             promoting();
-        } else if (gameover == false) {
-            // MOUSE BUTTON PRESSED //
+        } 
+        else if (!gameover) {
+
+            // MOUSE BUTTON PRESSED
             if (mouse.pressed) {
+
                 if (activeP == null) {
-                    // If the activeP is null, check if you can pick up a piece
+                    // Try to pick up a piece
                     for (Piece piece : simPieces) {
-                        // If the mouse is on an ally piece, pick it up as activeP
                         if (piece.color == currentColor &&
-                                piece.col == mouse.x / Board.SQUARE_SIZE &&
-                                piece.row == mouse.y / Board.SQUARE_SIZE) {
+                            piece.col == mouse.x / Board.SQUARE_SIZE &&
+                            piece.row == mouse.y / Board.SQUARE_SIZE) {
 
                             activeP = piece;
                         }
                     }
-                } else {
-                    // If the player is holding a piece, simulate the move
+                } 
+                else {
+                    // Simulate dragging
                     simulate();
                 }
             }
-            // MOUSE BUTTON RELEASED //
-            if (mouse.pressed == false) {
+
+            // MOUSE BUTTON RELEASED
+            if (!mouse.pressed) {
+
                 if (activeP != null) {
 
                     if (validSquare) {
-                        // MOVE CONFIRMED
 
-                        // Update the piece list in case a piece has been captured and removed during the simulation
+                        // King safety check BEFORE committing the move
+                        if (opponentCanCaptureKing()) {
+                            copyPieces(pieces, simPieces);
+                            activeP.resetPosition();
+                            activeP = null;
+                            return;
+                        }
+
+                        // MOVE CONFIRMED
                         copyPieces(simPieces, pieces);
                         activeP.updatePosition();
-                        if (castlingP != null) {
-                            castlingP.updatePosition();
-                        }
+                        if (castlingP != null) castlingP.updatePosition();
 
                         if (isKingInCheck() && isCheckmate()) {
                             gameover = true;
-                        } else { // The game is still going on
-                            if (canPromote()) {
-                                promotion = true;
-                            } else {
-                                changePlayer();
-                            }
                         }
-                    } else {
-                        // The move is not valid so reset everything
+                        else {
+                            if (canPromote()) promotion = true;
+                            else changePlayer();
+                        }
+                    }
+                    else {
+                        // INVALID MOVE → reset
                         copyPieces(pieces, simPieces);
                         activeP.resetPosition();
-                        activeP = null;
                     }
+
+                    activeP = null;
                 }
             }
         }
@@ -221,9 +231,8 @@ public class GamePanel extends JPanel implements Runnable {
 
             checkCastling();
 
-            if (isIllegal(activeP) == false && opponentCanCaptureKing() == false) {
-                validSquare = true;
-            }
+            validSquare = true;
+
         }
     }
 
@@ -519,7 +528,19 @@ public class GamePanel extends JPanel implements Runnable {
         activeP = null;
     }
     
-    private void restartGame() {
+    public void restartGame() {
+
+        int choice = JOptionPane.showConfirmDialog(
+                this,
+                "Are you sure you want to restart the game?",
+                "Confirm Restart",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        if (choice != JOptionPane.YES_OPTION) {
+            return;
+        }
 
         // Reset core state
         gameover = false;
@@ -538,6 +559,7 @@ public class GamePanel extends JPanel implements Runnable {
         setPieces();
         copyPieces(pieces, simPieces);
     }
+
 
 
     private boolean canPromote() {
@@ -588,6 +610,50 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    public void surrender() {
+        if (!gameover) {
+            int choice = JOptionPane.showConfirmDialog(
+                    this,
+                    "Are you sure you want to surrender?",
+                    "Confirm Surrender",
+                    JOptionPane.YES_NO_OPTION
+            );
+
+            if (choice == JOptionPane.YES_OPTION) {
+                gameover = true;
+                currentColor = (currentColor == WHITE ? BLACK : WHITE);
+            }
+        }
+    }
+
+    public void offerDraw() {
+        if (!gameover) {
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "Are you sure you want to offer a draw?",
+                    "Confirm Draw Offer",
+                    JOptionPane.YES_NO_OPTION
+            );
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                String opponent = (currentColor == WHITE ? "Black" : "White");
+
+                int accept = JOptionPane.showConfirmDialog(
+                        this,
+                        opponent + ", do you accept the draw?",
+                        "Draw Offer",
+                        JOptionPane.YES_NO_OPTION
+                );
+
+                if (accept == JOptionPane.YES_OPTION) {
+                    gameover = true;
+                    currentColor = -1; // draw
+                }
+            }
+        }
+    }
+
+    
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -669,95 +735,7 @@ public class GamePanel extends JPanel implements Runnable {
             g2.drawString(s, 200, 420);
         }
         
-        JButton surrenderButton = new JButton("Surrender");
-        surrenderButton.setBounds(850, 20, 200, 40);
-
-        surrenderButton.addActionListener(e -> {
-            if (!gameover) {
-
-                int choice = JOptionPane.showConfirmDialog(
-                        this,
-                        "Are you sure you want to surrender?",
-                        "Confirm Surrender",
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.WARNING_MESSAGE
-                );
-
-                if (choice == JOptionPane.YES_OPTION) {
-                    gameover = true;
-
-                    // The current player surrenders, so the other player wins
-                    currentColor = (currentColor == WHITE ? BLACK : WHITE);
-
-                    repaint();
-                }
-            }
-        });
-       
-        setLayout(null);
-        add(surrenderButton);
-
-        JButton drawButton = new JButton("Offer Draw");
-        drawButton.setBounds(850, 70, 200, 40);
-
-        drawButton.addActionListener(e -> {
-            if (!gameover) {
-
-                int confirm = JOptionPane.showConfirmDialog(
-                        this,
-                        "Are you sure you want to offer a draw?",
-                        "Confirm Draw Offer",
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.QUESTION_MESSAGE
-                );
-
-                if (confirm == JOptionPane.YES_OPTION) {
-
-                    // Now ask the opponent if they accept
-                    String opponent = (currentColor == WHITE ? "Black" : "White");
-
-                    int accept = JOptionPane.showConfirmDialog(
-                            this,
-                            opponent + ", do you accept the draw?",
-                            "Draw Offer",
-                            JOptionPane.YES_NO_OPTION,
-                            JOptionPane.INFORMATION_MESSAGE
-                    );
-
-                    if (accept == JOptionPane.YES_OPTION) {
-                        gameover = true;
-
-                        // Special value to indicate draw
-                        currentColor = -1;
-
-                        repaint();
-                    }
-                }
-            }
-        });
-
-        add(drawButton);
-
-        JButton restartButton = new JButton("Restart Game");
-        restartButton.setBounds(850, 120, 200, 40);
-
-        restartButton.addActionListener(e -> {
-
-            int choice = JOptionPane.showConfirmDialog(
-                    this,
-                    "Are you sure you want to restart the game?",
-                    "Confirm Restart",
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.WARNING_MESSAGE
-            );
-
-            if (choice == JOptionPane.YES_OPTION) {
-                restartGame();
-                repaint();
-            }
-        });
-
-        add(restartButton);
-
+        
+        
     }
 }
